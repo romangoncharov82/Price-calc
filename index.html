@@ -1,114 +1,114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Калькулятор цены реализации — кнопка + комиссия + подробности + график</title>
+  <meta charset="UTF-8">
+  <title>Калькулятор цены реализации</title>
   <style>
-    :root { --bg:#0f1220; --panel:#151932; --ink:#e6e8f2; --muted:#a7acc2; --accent:#6dd3fb; --ok:#2ecc71; --err:#ff6b6b; --line:#242a55; }
-    * { box-sizing:border-box; }
-    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--ink); }
-    .wrap { max-width:1200px; margin:32px auto; padding:0 16px; }
-    h1 { font-size:26px; margin:0 0 6px; }
-    .sub { color:var(--muted); margin-bottom:18px; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
-    @media (max-width:1000px){ .grid{ grid-template-columns: 1fr; } }
-    .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
-    .row { background:#101430; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; }
-    label { display:block; font-size:14px; color:var(--muted); margin:0 0 6px; }
-    input, select { width:100%; background:transparent; border:none; outline:none; font-size:18px; color:var(--ink); }
-    input[type="checkbox"] { transform: scale(1.2); }
-    button { border:none; border-radius:12px; padding:12px 16px; font-size:16px; cursor:pointer; margin-right:8px; }
-    .primary { background:var(--accent); color:#0a0f1a; font-weight:700; }
-    .ghost { background:#0e1228; color:var(--ink); border:1px solid #273063; }
-    .error { color:var(--err); margin-top:10px; font-weight:700; }
-    .msg { color:var(--ok); margin-top:10px; }
-    .results h2 { margin:0 0 10px; font-size:18px; }
-    .results .kv { display:grid; grid-template-columns: 1.6fr 1fr; gap:6px 12px; font-size:15px; }
-    .kv div { padding:6px 8px; border-bottom:1px dashed #283064; }
-    .kv div.key { color:#b6bce0; }
-    .kv div.val { text-align:right; font-variant-numeric: tabular-nums; }
-    .muted { color:var(--muted); }
-    .table { width:100%; border-collapse:collapse; margin-top:8px; }
-    .table th, .table td { border-bottom:1px dashed #283064; padding:8px; text-align:right; font-variant-numeric: tabular-nums; }
-    .table th:first-child, .table td:first-child { text-align:left; color:#b6bce0; }
-    .chartWrap { background:#0e1330; border:1px solid var(--line); border-radius:14px; padding:16px; }
-    canvas { width:100%; height:260px; }
+    body { font-family: Arial, sans-serif; background:#111; color:#eee; padding:20px; }
+    h2 { color:#4dd0e1; }
+    label { display:block; margin-top:10px; }
+    input, select { width:100%; padding:8px; margin-top:4px; background:#222; color:#fff; border:1px solid #555; border-radius:4px; }
+    .error { color:red; font-size:0.9em; }
+    button { margin-top:15px; padding:10px; background:#4dd0e1; border:none; border-radius:4px; cursor:pointer; }
+    button:hover { background:#26c6da; }
+    .result { background:#222; padding:10px; margin-top:15px; border-radius:6px; }
+    canvas { margin-top:20px; background:#fff; border-radius:4px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Калькулятор цены реализации (подробности + график)</h1>
-    <div class="sub">Оставьте <strong>ровно одно</strong> поле из основных пустым — оно будет рассчитано.</div>
+  <h2>Калькулятор цены реализации</h2>
 
-    <div class="grid">
-      <div class="panel">
-        <div class="row"><label>Стоимость закупа</label><input id="purchase" type="number" step="0.01" min="0" placeholder="напр., 10.00"></div>
-        <div class="row"><label>Логистика</label><input id="logistics" type="number" step="0.01" min="0" placeholder="напр., 2.00"></div>
-        <div class="row"><label>Упаковка</label><input id="packaging" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
-        <div class="row"><label>Растаможка</label><input id="customs" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
-        <div class="row"><label>Маркетинг</label><input id="marketing" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
-        <div class="row"><label>Хранение</label><input id="storage" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
+  <label>Стоимость закупа <input type="number" id="purchase"></label>
+  <label>Логистика <input type="number" id="logistics"></label>
+  <label>Упаковка <input type="number" id="package"></label>
+  <label>Растаможка <input type="number" id="customs"></label>
+  <label>Маркетинг <input type="number" id="marketing"></label>
+  <label>Хранение <input type="number" id="storage"></label>
+  <label>Комиссия маркетплейса, % (от цены реализации без НДС) <input type="number" id="commission"></label>
 
-        <div class="row"><label>Комиссия маркетплейса, % (от цены реализации без НДС)</label><input id="mpFeePct" type="number" step="0.01" min="0" placeholder=""></div>
+  <label>Тип маржи
+    <select id="marginType">
+      <option value="abs">$ — абсолютная</option>
+      <option value="cost">От себестоимости (%)</option>
+      <option value="sp">От цены реализации (%)</option>
+    </select>
+  </label>
 
-        <div class="row">
-          <label>Тип маржи</label>
-          <select id="marginMode">
-            <option value="abs">$ — абсолютная</option>
-            <option value="on_cost">% — наценка от себестоимости</option>
-            <option value="on_sp">% — маржа от цены реализации (без НДС)</option>
-          </select>
-        </div>
+  <label>Маржа <input type="number" id="margin"></label>
+  <label>Ставка НДС, % <input type="number" id="vat" value="0"></label>
+  <label><input type="checkbox" id="includeVat"> Цена реализации включает НДС</label>
+  <label>Цена реализации <input type="number" id="sp"></label>
 
-        <div class="row"><label>Маржа</label><input id="margin" type="number" step="0.01" placeholder="напр., 3.00 или 25"></div>
-        <div class="row"><label>Ставка НДС, %</label><input id="vatRate" type="number" step="0.01" min="0" placeholder="напр., 12"></div>
-        <div class="row"><label><input type="checkbox" id="vatIncluded"> Цена реализации включает НДС</label></div>
-        <div class="row"><label>Цена реализации</label><input id="selling" type="number" step="0.01" placeholder="напр., 17.50"></div>
+  <button onclick="calculate()">Рассчитать</button>
+  <button onclick="resetForm()">Сброс</button>
 
-        <div>
-          <button class="primary" id="calcBtn">Рассчитать</button>
-          <button class="ghost" id="resetBtn">Сброс</button>
-        </div>
-        <div id="error" class="error" role="alert"></div>
-        <div id="msg" class="msg"></div>
-      </div>
+  <div class="result" id="output"></div>
+  <canvas id="chart" width="400" height="200"></canvas>
 
-      <div class="panel results">
-        <h2>Итоги (цена и прибыль)</h2>
-        <div class="kv">
-          <div class="key">Цена реализации без НДС</div><div class="val" id="out_spnet">—</div>
-          <div class="key">НДС, %</div><div class="val" id="out_vat_pct">—</div>
-          <div class="key">Сумма НДС</div><div class="val" id="out_vat_abs">—</div>
-          <div class="key">Цена реализации с НДС</div><div class="val" id="out_sp_gross">—</div>
-          <div class="key">Прибыль ($)</div><div class="val" id="out_profit_abs">—</div>
-          <div class="key">Прибыль / себестоимость, %</div><div class="val" id="out_profit_cost_pct">—</div>
-          <div class="key">Прибыль / цена, %</div><div class="val" id="out_profit_sp_pct">—</div>
-        </div>
-
-        <h2 style="margin-top:18px;">Разбивка затрат</h2>
-        <table class="table">
-          <thead><tr><th>Статья</th><th>$</th><th>% от цены без НДС</th></tr></thead>
-          <tbody id="cost_rows">
-            <tr><td>Закуп</td><td id="c_purchase">—</td><td id="p_purchase">—</td></tr>
-            <tr><td>Логистика</td><td id="c_logistics">—</td><td id="p_logistics">—</td></tr>
-            <tr><td>Упаковка</td><td id="c_packaging">—</td><td id="p_packaging">—</td></tr>
-            <tr><td>Растаможка</td><td id="c_customs">—</td><td id="p_customs">—</td></tr>
-            <tr><td>Маркетинг</td><td id="c_marketing">—</td><td id="p_marketing">—</td></tr>
-            <tr><td>Хранение</td><td id="c_storage">—</td><td id="p_storage">—</td></tr>
-            <tr><td><strong>Комиссия маркетплейса</strong></td><td id="c_fee">—</td><td id="p_fee">—</td></tr>
-            <tr><td><strong>Итого себестоимость</strong></td><td id="c_total">—</td><td id="p_total">—</td></tr>
-          </tbody>
-        </table>
-
-        <div class="chartWrap" style="margin-top:18px;">
-          <canvas id="bar"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// (JavaScript code remains the same as previous version, not repeating for brevity)
+function calculate() {
+  const purchase = parseFloat(document.getElementById("purchase").value)||0;
+  const logistics = parseFloat(document.getElementById("logistics").value)||0;
+  const packageCost = parseFloat(document.getElementById("package").value)||0;
+  const customs = parseFloat(document.getElementById("customs").value)||0;
+  const marketing = parseFloat(document.getElementById("marketing").value)||0;
+  const storage = parseFloat(document.getElementById("storage").value)||0;
+  const commissionPct = parseFloat(document.getElementById("commission").value)||0;
+  const marginType = document.getElementById("marginType").value;
+  const margin = parseFloat(document.getElementById("margin").value)||0;
+  const vatRate = parseFloat(document.getElementById("vat").value)||0;
+  const includeVat = document.getElementById("includeVat").checked;
+  let sp = parseFloat(document.getElementById("sp").value);
+
+  let cost = purchase + logistics + packageCost + customs + marketing + storage;
+
+  let spNet;
+  if (isNaN(sp)) {
+    let profit=0;
+    if(marginType==="abs"){ profit=margin; }
+    else if(marginType==="cost"){ profit=cost*margin/100; }
+    else if(marginType==="sp"){ profit=0; } // вычисляем отдельно ниже
+
+    if(marginType==="sp"){
+      spNet=(cost)/(1 - commissionPct/100 - margin/100);
+    } else {
+      spNet=(cost + profit)/(1 - commissionPct/100);
+    }
+
+    sp = includeVat ? spNet*(1+vatRate/100) : spNet;
+  } else {
+    spNet = includeVat ? sp/(1+vatRate/100) : sp;
+  }
+
+  let commission = spNet * commissionPct/100;
+  let finalCost = cost + commission;
+  let profit = spNet - finalCost;
+
+  let output = `
+    <b>Общая себестоимость:</b> ${cost.toFixed(2)}<br>
+    <b>Комиссия маркетплейса:</b> ${commission.toFixed(2)}<br>
+    <b>Итого себестоимость с комиссией:</b> ${finalCost.toFixed(2)}<br>
+    <b>Цена реализации без НДС:</b> ${spNet.toFixed(2)}<br>
+    <b>Цена реализации с НДС:</b> ${(spNet*(1+vatRate/100)).toFixed(2)}<br>
+    <b>Прибыль:</b> ${profit.toFixed(2)}
+  `;
+  document.getElementById("output").innerHTML = output;
+
+  // график
+  const ctx=document.getElementById("chart");
+  new Chart(ctx,{type:"bar",
+    data:{labels:["Закуп","Логистика","Упаковка","Растаможка","Маркетинг","Хранение","Комиссия","Прибыль"],
+      datasets:[{label:"Структура цены",data:[purchase,logistics,packageCost,customs,marketing,storage,commission,profit],
+        backgroundColor:["#42a5f5","#26c6da","#66bb6a","#ffa726","#ab47bc","#8d6e63","#ef5350","#ffeb3b"]}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+}
+
+function resetForm(){
+  document.querySelectorAll("input").forEach(el=>{ if(el.type!=="checkbox") el.value=""; });
+  document.getElementById("includeVat").checked=false;
+  document.getElementById("output").innerHTML="";
+}
 </script>
 </body>
 </html>
