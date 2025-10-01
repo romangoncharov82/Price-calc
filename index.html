@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Калькулятор цены реализации — кнопка + комиссия + подробности + график</title>
+  <style>
+    :root { --bg:#0f1220; --panel:#151932; --ink:#e6e8f2; --muted:#a7acc2; --accent:#6dd3fb; --ok:#2ecc71; --err:#ff6b6b; --line:#242a55; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:1200px; margin:32px auto; padding:0 16px; }
+    h1 { font-size:26px; margin:0 0 6px; }
+    .sub { color:var(--muted); margin-bottom:18px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    @media (max-width:1000px){ .grid{ grid-template-columns: 1fr; } }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
+    .row { background:#101430; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; }
+    label { display:block; font-size:14px; color:var(--muted); margin:0 0 6px; }
+    input, select { width:100%; background:transparent; border:none; outline:none; font-size:18px; color:var(--ink); }
+    input[type="checkbox"] { transform: scale(1.2); }
+    button { border:none; border-radius:12px; padding:12px 16px; font-size:16px; cursor:pointer; margin-right:8px; }
+    .primary { background:var(--accent); color:#0a0f1a; font-weight:700; }
+    .ghost { background:#0e1228; color:#e6e8f2; border:1px solid #273063; }
+    .error { color:var(--err); margin-top:10px; font-weight:700; }
+    .msg { color:var(--ok); margin-top:10px; }
+    .results h2 { margin:0 0 10px; font-size:18px; }
+    .results .kv { display:grid; grid-template-columns: 1.6fr 1fr; gap:6px 12px; font-size:15px; }
+    .kv div { padding:6px 8px; border-bottom:1px dashed #283064; }
+    .kv div.key { color:#b6bce0; }
+    .kv div.val { text-align:right; font-variant-numeric: tabular-nums; }
+    .table { width:100%; border-collapse:collapse; margin-top:8px; }
+    .table th, .table td { border-bottom:1px dashed #283064; padding:8px; text-align:right; font-variant-numeric: tabular-nums; }
+    .table th:first-child, .table td:first-child { text-align:left; color:#b6bce0; }
+    .chartWrap { background:#0e1330; border:1px solid var(--line); border-radius:14px; padding:16px; }
+    canvas { width:100%; height:260px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Калькулятор цены реализации (подробности + график)</h1>
+    <div class="sub">Оставьте <strong>ровно одно</strong> поле из основных пустым — оно будет рассчитано.</div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="row"><label>Стоимость закупа</label><input id="purchase" type="number" step="0.01" min="0" placeholder="напр., 10.00"></div>
+        <div class="row"><label>Логистика</label><input id="logistics" type="number" step="0.01" min="0" placeholder="напр., 2.00"></div>
+        <div class="row"><label>Упаковка</label><input id="packaging" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
+        <div class="row"><label>Растаможка</label><input id="customs" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
+        <div class="row"><label>Маркетинг</label><input id="marketing" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
+        <div class="row"><label>Хранение</label><input id="storage" type="number" step="0.01" min="0" placeholder="напр., 1.00"></div>
+
+        <div class="row"><label>Комиссия маркетплейса, % (от цены реализации без НДС)</label><input id="mpFeePct" type="number" step="0.01" min="0" placeholder=""></div>
+
+        <div class="row">
+          <label>Тип маржи</label>
+          <select id="marginMode">
+            <option value="abs">$ — абсолютная</option>
+            <option value="on_cost">% — наценка от себестоимости</option>
+            <option value="on_sp">% — маржа от цены реализации (без НДС)</option>
+          </select>
+        </div>
+
+        <div class="row"><label>Маржа</label><input id="margin" type="number" step="0.01" placeholder="напр., 3.00 или 25"></div>
+        <div class="row"><label>Ставка НДС, %</label><input id="vatRate" type="number" step="0.01" min="0" placeholder="напр., 12"></div>
+        <div class="row"><label><input type="checkbox" id="vatIncluded"> Цена реализации включает НДС</label></div>
+        <div class="row"><label>Цена реализации</label><input id="selling" type="number" step="0.01" placeholder="напр., 17.50"></div>
+
+        <div>
+          <button class="primary" id="calcBtn">Рассчитать</button>
+          <button class="ghost" id="resetBtn">Сброс</button>
+        </div>
+        <div id="error" class="error" role="alert"></div>
+        <div id="msg" class="msg"></div>
+      </div>
+
+      <div class="panel results">
+        <h2>Итоги (цена и прибыль)</h2>
+        <div class="kv">
+          <div class="key">Цена реализации без НДС</div><div class="val" id="out_spnet">—</div>
+          <div class="key">НДС, %</div><div class="val" id="out_vat_pct">—</div>
+          <div class="key">Сумма НДС</div><div class="val" id="out_vat_abs">—</div>
+          <div class="key">Цена реализации с НДС</div><div class="val" id="out_sp_gross">—</div>
+          <div class="key">Прибыль ($)</div><div class="val" id="out_profit_abs">—</div>
+          <div class="key">Прибыль / себестоимость, %</div><div class="val" id="out_profit_cost_pct">—</div>
+          <div class="key">Прибыль / цена, %</div><div class="val" id="out_profit_sp_pct">—</div>
+        </div>
+
+        <h2 style="margin-top:18px;">Разбивка затрат</h2>
+        <table class="table">
+          <thead><tr><th>Статья</th><th>$</th><th>% от цены без НДС</th></tr></thead>
+          <tbody id="cost_rows">
+            <tr><td>Закуп</td><td id="c_purchase">—</td><td id="p_purchase">—</td></tr>
+            <tr><td>Логистика</td><td id="c_logistics">—</td><td id="p_logistics">—</td></tr>
+            <tr><td>Упаковка</td><td id="c_packaging">—</td><td id="p_packaging">—</td></tr>
+            <tr><td>Растаможка</td><td id="c_customs">—</td><td id="p_customs">—</td></tr>
+            <tr><td>Маркетинг</td><td id="c_marketing">—</td><td id="p_marketing">—</td></tr>
+            <tr><td>Хранение</td><td id="c_storage">—</td><td id="p_storage">—</td></tr>
+            <tr><td><strong>Комиссия маркетплейса</strong></td><td id="c_fee">—</td><td id="p_fee">—</td></tr>
+            <tr><td><strong>Итого себестоимость</strong></td><td id="c_total">—</td><td id="p_total">—</td></tr>
+          </tbody>
+        </table>
+
+        <div class="chartWrap" style="margin-top:18px;">
+          <canvas id="bar"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const ids = ["purchase","logistics","packaging","customs","marketing","storage","margin","selling"];
+const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+const $marginMode = document.getElementById('marginMode');
+const $vatRate = document.getElementById('vatRate');
+const $vatIncluded = document.getElementById('vatIncluded');
+const $mpFeePct = document.getElementById('mpFeePct');
+const $err = document.getElementById('error');
+const $msg = document.getElementById('msg');
+
+function parseVal(v){ if(v===""||v==null) return null; const n=Number(v); return Number.isFinite(n)?n:null; }
+function round2(x){ return Math.round((x+Number.EPSILON)*100)/100; }
+function baseCosts(vals){ return ["purchase","logistics","packaging","customs","marketing","storage"].map(k=>vals[k]??0).reduce((a,b)=>a+b,0); }
+function getVatMultiplier(){ const rate=parseVal($vatRate.value)||0; return 1+rate/100; }
+function pct(x){ return (parseVal(x)||0)/100; }
+function fmt(x){ return (x==null||!Number.isFinite(x)) ? "—" : x.toFixed(2); }
+
+function compute(){
+  const vals={}; ids.forEach(id=>vals[id]=parseVal(el[id].value));
+  const empties=ids.filter(id=>vals[id]===null);
+  const mode=$marginMode.value;
+  const vatK=getVatMultiplier();
+  const vatInc=$vatIncluded.checked;
+  const c=pct($mpFeePct.value);
+  const base0=baseCosts(vals);
+
+  if(empties.length!==1){
+    $err.textContent="Оставьте ровно одно поле пустым — то, которое хотите вычислить.";
+    $msg.textContent=""; 
+    updateOutputs(null); 
+    return;
+  }
+  $err.textContent=""; $msg.textContent="";
+  const missing=empties[0];
+
+  function SPnet_from_base_and_margin(){
+    if(mode==="abs"){
+      const M=vals.margin??0; if(1-c<=0) throw new Error("Комиссия слишком велика (>=100%).");
+      return (base0+M)/(1-c);
+    }else if(mode==="on_cost"){
+      if(vals.margin===null) throw new Error("Укажите процент маржи.");
+      const r=(vals.margin)/100; if(1-c*(1+r)<=0) throw new Error("Комиссия и маржа слишком велики.");
+      return (1+r)*base0/(1-c*(1+r));
+    }else{
+      if(vals.margin===null) throw new Error("Укажите процент маржи.");
+      const r=(vals.margin)/100; if(1-c-r<=0) throw new Error("Комиссия + маржа должны быть < 100%.");
+      return base0/(1-c-r);
+    }
+  }
+  function SPnet_from_SP(){ if(vals.selling===null) throw new Error("Укажите цену реализации."); return vatInc ? vals.selling/vatK : vals.selling; }
+
+  let SPnet, SPgross;
+  try{
+    if(missing==="selling"){
+      SPnet=SPnet_from_base_and_margin(); SPgross=vatInc?SPnet*vatK:SPnet;
+      el.selling.value=round2(SPgross); $msg.textContent="Рассчитана цена реализации";
+    }else if(missing==="margin"){
+      SPnet=SPnet_from_SP(); const costWithFee=base0+c*SPnet; let result;
+      if(mode==="abs"){ result=SPnet*(1-c)-base0; }
+      else if(mode==="on_cost"){ if(costWithFee===0) throw new Error("Себестоимость равна 0 — процент не определён."); result=(SPnet/costWithFee-1)*100; }
+      else { if(SPnet===0) throw new Error("Цена без НДС равна 0 — процент не определён."); result=(1-c-base0/SPnet)*100; }
+      el.margin.value=round2(result); SPgross=vatInc?SPnet*vatK:SPnet; $msg.textContent="Рассчитана маржа";
+    }else{
+      SPnet=SPnet_from_SP(); const known=base0-(vals[missing]??0); let result;
+      if(mode==="abs"){ const M=vals.margin??0; result=SPnet*(1-c)-M-known; }
+      else if(mode==="on_cost"){ const r=(vals.margin??0)/100; const base0_from=SPnet*(1 - c*(1+r))/(1+r); result=base0_from-known; }
+      else { const r=(vals.margin??0)/100; const base0_from=SPnet*(1 - c - r); result=base0_from-known; }
+      el[missing].value=round2(result); SPgross=vatInc?SPnet*vatK:SPnet; $msg.textContent="Рассчитано поле: "+missing;
+    }
+    updateOutputs({SPnet, SPgross, base0, c, vals});
+  }catch(e){ $err.textContent = e.message || "Ошибка расчёта."; updateOutputs(null); }
+}
+
+function updateOutputs(data){
+  const set = (id,val)=>document.getElementById(id).textContent = fmt(val);
+  if(!data){ ["out_spnet","out_vat_pct","out_vat_abs","out_sp_gross","out_profit_abs","out_profit_cost_pct","out_profit_sp_pct","c_purchase","c_logistics","c_packaging","c_customs","c_marketing","c_storage","c_fee","c_total","p_purchase","p_logistics","p_packaging","p_customs","p_marketing","p_storage","p_fee","p_total"].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent="—";}); drawChart([]); return; }
+  const {SPnet, SPgross, base0, c, vals} = data;
+  const fee = SPnet*c;
+  const totalCost = base0 + fee;
+  const profit = SPnet - totalCost;
+  const vatPct = (getVatMultiplier()-1)*100;
+  const vatAbs = SPgross - SPnet;
+  const costParts = {
+    purchase: vals.purchase||0,
+    logistics: vals.logistics||0,
+    packaging: vals.packaging||0,
+    customs: vals.customs||0,
+    marketing: vals.marketing||0,
+    storage: vals.storage||0,
+    fee: fee
+  };
+  // Totals
+  set("out_spnet", SPnet);
+  set("out_vat_pct", vatPct);
+  set("out_vat_abs", vatAbs);
+  set("out_sp_gross", SPgross);
+  set("out_profit_abs", profit);
+  set("out_profit_cost_pct", totalCost ? (profit/totalCost*100) : null);
+  set("out_profit_sp_pct", SPnet ? (profit/SPnet*100) : null);
+  set("c_total", totalCost);
+  // Rows
+  set("c_purchase", costParts.purchase);
+  set("c_logistics", costParts.logistics);
+  set("c_packaging", costParts.packaging);
+  set("c_customs", costParts.customs);
+  set("c_marketing", costParts.marketing);
+  set("c_storage", costParts.storage);
+  set("c_fee", costParts.fee);
+  function perc(x){ return SPnet ? (x/SPnet*100) : null; }
+  set("p_purchase", perc(costParts.purchase));
+  set("p_logistics", perc(costParts.logistics));
+  set("p_packaging", perc(costParts.packaging));
+  set("p_customs", perc(costParts.customs));
+  set("p_marketing", perc(costParts.marketing));
+  set("p_storage", perc(costParts.storage));
+  set("p_fee", perc(costParts.fee));
+  set("p_total", perc(totalCost));
+  // Chart
+  drawChart([
+    ["Закуп", costParts.purchase],
+    ["Логистика", costParts.logistics],
+    ["Упаковка", costParts.packaging],
+    ["Растаможка", costParts.customs],
+    ["Маркетинг", costParts.marketing],
+    ["Хранение", costParts.storage],
+    ["Комиссия", costParts.fee],
+    ["Прибыль", profit<0?0:profit]
+  ]);
+}
+
+function drawChart(data){
+  const canvas = document.getElementById('bar');
+  const ctx = canvas.getContext('2d');
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio; canvas.height = height * ratio; ctx.scale(ratio, ratio);
+  ctx.clearRect(0,0,width,height);
+  if(!data.length){ return; }
+  const padding = {l:60,r:20,t:10,b:60};
+  const chartW = width - padding.l - padding.r;
+  const chartH = height - padding.t - padding.b;
+  const values = data.map(d=>d[1]);
+  const maxV = Math.max(1, ...values);
+  const barW = chartW / data.length * 0.8;
+  const step = chartW / data.length;
+  ctx.strokeStyle = "#283064"; ctx.lineWidth = 1;
+  // y axis
+  ctx.beginPath(); ctx.moveTo(padding.l, padding.t); ctx.lineTo(padding.l, padding.t+chartH); ctx.stroke();
+  // x axis
+  ctx.beginPath(); ctx.moveTo(padding.l, padding.t+chartH); ctx.lineTo(padding.l+chartW, padding.t+chartH); ctx.stroke();
+  ctx.fillStyle = "#b6bce0"; ctx.font = "12px system-ui";
+  const gridN = 4;
+  for(let i=0;i<=gridN;i++){
+    const y = padding.t + chartH - chartH * (i/gridN);
+    const val = (maxV * (i/gridN)).toFixed(0);
+    ctx.fillStyle="#8a90b8"; ctx.fillText(val, 8, y+4);
+    ctx.strokeStyle="#283064"; ctx.beginPath(); ctx.moveTo(padding.l, y); ctx.lineTo(padding.l+chartW, y); ctx.stroke();
+  }
+  for(let i=0;i<data.length;i++){
+    const [label, v] = data[i];
+    const x = padding.l + i*step + (step - barW)/2;
+    const h = v<=0 ? 0 : (v/maxV)*chartH;
+    ctx.fillStyle = "#6dd3fb";
+    ctx.fillRect(x, padding.t + chartH - h, barW, h);
+    ctx.save(); ctx.translate(x+barW/2, height - padding.b/2); ctx.rotate(-Math.PI/6);
+    ctx.fillStyle="#b6bce0"; ctx.textAlign="center"; ctx.fillText(label, 0, 0); ctx.restore();
+  }
+}
+
+document.getElementById('calcBtn').addEventListener('click', compute);
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  ids.forEach(id=>el[id].value=""); $mpFeePct.value=""; $vatRate.value=""; $vatIncluded.checked=false;
+  $err.textContent=""; $msg.textContent=""; updateOutputs(null);
+});
+</script>
+</body>
+</html>
